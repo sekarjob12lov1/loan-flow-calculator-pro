@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Financial theme colors
+				finance: {
+					primary: '#1E88E5', // Blue
+					secondary: '#43A047', // Green for positive numbers
+					negative: '#E53935', // Red for negative numbers
+					accent: '#FFB74D', // Gold color for gold loans
+					light: '#F5F7FA', // Light background
+					dark: '#263238', // Dark text
 				}
 			},
 			borderRadius: {
