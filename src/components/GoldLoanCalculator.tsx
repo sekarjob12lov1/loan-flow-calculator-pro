@@ -251,6 +251,7 @@ const GoldLoanCalculator: React.FC = () => {
               label="Loan Start Date"
               selectedDate={startDate}
               onChange={setStartDate}
+              allowPastDates={true}
             />
             
             <div className="mt-6">

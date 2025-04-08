@@ -95,6 +95,7 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
             selectedDate={payment.date}
             onChange={(date) => onUpdatePartPayment(payment.id, { date })}
             startDate={loanStartDate}
+            allowPastDates={true}
           />
           
           <Button

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, subMonths } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
@@ -11,6 +11,7 @@ interface MonthYearPickerProps {
   startDate?: Date;
   endDate?: Date;
   className?: string;
+  allowPastDates?: boolean;
 }
 
 const MonthYearPicker = ({ 
@@ -19,7 +20,8 @@ const MonthYearPicker = ({
   onChange, 
   startDate = new Date(), 
   endDate,
-  className = '' 
+  className = '',
+  allowPastDates = false
 }: MonthYearPickerProps) => {
   // If no end date specified, default to 30 years from start date
   const actualEndDate = endDate || addMonths(startDate, 360);
@@ -27,7 +29,9 @@ const MonthYearPicker = ({
   // Generate array of months between start and end date
   const generateMonthOptions = () => {
     const options = [];
-    let currentDate = new Date(startDate);
+    // If past dates are allowed, go back 10 years from today
+    const actualStartDate = allowPastDates ? subMonths(new Date(), 120) : startDate;
+    let currentDate = new Date(actualStartDate);
     
     while (currentDate <= actualEndDate) {
       options.push({
