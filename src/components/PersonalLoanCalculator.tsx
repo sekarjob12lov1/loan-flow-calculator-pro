@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Input } from '@/components/ui/input';
-import { addMonths, format } from 'date-fns';
+import { addMonths, format, isEqual } from 'date-fns';
 import RangeInput from './RangeInput';
 import MonthYearPicker from './MonthYearPicker';
 import RepaymentSchedule, { PaymentScheduleRow } from './RepaymentSchedule';
 import { exportToExcel } from './ExcelExporter';
+import PartPaymentManager, { PartPayment } from './PartPaymentManager';
 
 const PersonalLoanCalculator: React.FC = () => {
   // Loan Parameters
@@ -20,16 +20,28 @@ const PersonalLoanCalculator: React.FC = () => {
   
   // Part Payment Parameters
   const [enablePartPayment, setEnablePartPayment] = useState(false);
-  const [partPaymentAmount, setPartPaymentAmount] = useState(50000);
-  const [partPaymentDate, setPartPaymentDate] = useState(addMonths(new Date(), 12));
-  const [partPaymentCount, setPartPaymentCount] = useState(1);
-  const [partPaymentFrequency, setPartPaymentFrequency] = useState(12); // in months
+  const [partPayments, setPartPayments] = useState<PartPayment[]>([]);
   const [reduceEMI, setReduceEMI] = useState(false);
   
   // Calculated Values
   const [emi, setEmi] = useState(0);
   const [originalSchedule, setOriginalSchedule] = useState<PaymentScheduleRow[]>([]);
   const [modifiedSchedule, setModifiedSchedule] = useState<PaymentScheduleRow[]>([]);
+  
+  // Handle part payment actions
+  const handleAddPartPayment = (partPayment: PartPayment) => {
+    setPartPayments([...partPayments, partPayment]);
+  };
+
+  const handleRemovePartPayment = (id: string) => {
+    setPartPayments(partPayments.filter(p => p.id !== id));
+  };
+
+  const handleUpdatePartPayment = (id: string, updates: Partial<Omit<PartPayment, 'id'>>) => {
+    setPartPayments(partPayments.map(p => 
+      p.id === id ? { ...p, ...updates } : p
+    ));
+  };
   
   // Calculate EMI and loan schedules whenever relevant parameters change
   useEffect(() => {
@@ -55,16 +67,12 @@ const PersonalLoanCalculator: React.FC = () => {
     setOriginalSchedule(originalScheduleData);
     
     // If part payment is enabled, calculate the modified schedule
-    if (enablePartPayment) {
-      const partPayments = [];
-      
-      for (let i = 0; i < partPaymentCount; i++) {
-        const paymentMonth = addMonths(partPaymentDate, i * partPaymentFrequency);
-        partPayments.push({
-          date: paymentMonth,
-          amount: partPaymentAmount
-        });
-      }
+    if (enablePartPayment && partPayments.length > 0) {
+      // Convert PartPayment objects to the format expected by generateSchedule
+      const formattedPartPayments = partPayments.map(pp => ({
+        date: pp.date,
+        amount: pp.amount
+      }));
       
       const modifiedScheduleData = generateSchedule(
         loanAmount, 
@@ -72,7 +80,7 @@ const PersonalLoanCalculator: React.FC = () => {
         actualTenure, 
         emiValue, 
         startDate, 
-        partPayments,
+        formattedPartPayments,
         reduceEMI
       );
       
@@ -87,10 +95,7 @@ const PersonalLoanCalculator: React.FC = () => {
     tenureType, 
     startDate, 
     enablePartPayment, 
-    partPaymentAmount, 
-    partPaymentDate, 
-    partPaymentCount, 
-    partPaymentFrequency,
+    partPayments,
     reduceEMI
   ]);
 
@@ -256,7 +261,19 @@ const PersonalLoanCalculator: React.FC = () => {
                   type="checkbox" 
                   id="p-enablePartPayment"
                   checked={enablePartPayment}
-                  onChange={(e) => setEnablePartPayment(e.target.checked)}
+                  onChange={(e) => {
+                    setEnablePartPayment(e.target.checked);
+                    if (e.target.checked && partPayments.length === 0) {
+                      // Add a default part payment when enabling
+                      const defaultDate = new Date(startDate);
+                      defaultDate.setMonth(defaultDate.getMonth() + 6);
+                      handleAddPartPayment({
+                        id: `payment-${Date.now()}`,
+                        date: defaultDate,
+                        amount: 50000
+                      });
+                    }
+                  }}
                   className="mr-2"
                 />
                 <Label htmlFor="p-enablePartPayment">Enable Part Payment</Label>
@@ -264,50 +281,16 @@ const PersonalLoanCalculator: React.FC = () => {
               
               {enablePartPayment && (
                 <>
-                  <RangeInput
-                    label="Part Payment Amount (₹)"
-                    value={partPaymentAmount}
-                    onChange={setPartPaymentAmount}
-                    min={5000}
-                    max={loanAmount / 2}
-                    step={5000}
-                    unit="₹"
+                  <PartPaymentManager
+                    partPayments={partPayments}
+                    onAddPartPayment={handleAddPartPayment}
+                    onRemovePartPayment={handleRemovePartPayment}
+                    onUpdatePartPayment={handleUpdatePartPayment}
+                    loanStartDate={startDate}
+                    maxAmount={loanAmount / 2}
                   />
                   
-                  <MonthYearPicker
-                    label="First Part Payment Date"
-                    selectedDate={partPaymentDate}
-                    onChange={setPartPaymentDate}
-                    startDate={startDate}
-                  />
-                  
-                  <div className="mb-4">
-                    <Label className="block mb-2">Number of Part Payments</Label>
-                    <Input
-                      type="number"
-                      value={partPaymentCount}
-                      onChange={(e) => setPartPaymentCount(Math.max(1, parseInt(e.target.value) || 1))}
-                      min={1}
-                      max={20}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  {partPaymentCount > 1 && (
-                    <div className="mb-4">
-                      <Label className="block mb-2">Frequency (months between payments)</Label>
-                      <Input
-                        type="number"
-                        value={partPaymentFrequency}
-                        onChange={(e) => setPartPaymentFrequency(Math.max(1, parseInt(e.target.value) || 1))}
-                        min={1}
-                        max={24}
-                        className="w-full"
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="mb-4">
+                  <div className="mb-4 mt-4">
                     <Label className="block mb-2">After Part Payment</Label>
                     <RadioGroup 
                       value={reduceEMI ? "reduce-emi" : "reduce-tenure"} 
