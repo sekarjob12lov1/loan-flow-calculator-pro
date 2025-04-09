@@ -16,6 +16,7 @@ export interface PaymentScheduleRow {
   closingBalance: number;
   isPartPayment?: boolean;
   partPaymentAmount?: number;
+  currentRate?: number; // Added to track interest rate changes
 }
 
 interface RepaymentScheduleProps {
@@ -49,6 +50,12 @@ const RepaymentSchedule: React.FC<RepaymentScheduleProps> = ({
   
   const { totalInterest, savings } = calculateSavings();
   
+  // Helper function to determine if row has an interest rate change
+  const hasInterestRateChange = (index: number, schedule: PaymentScheduleRow[]) => {
+    if (index === 0) return false;
+    return schedule[index].currentRate !== schedule[index - 1].currentRate;
+  };
+  
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -75,10 +82,10 @@ const RepaymentSchedule: React.FC<RepaymentScheduleProps> = ({
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
           <h4 className="text-lg font-semibold text-green-700 mb-2">Interest Savings</h4>
           <p className="mb-2">
-            Total interest without part-payments: <span className="font-semibold">₹{totalInterest.toFixed(2)}</span>
+            Total interest without modifications: <span className="font-semibold">₹{totalInterest.toFixed(2)}</span>
           </p>
           <p className="text-green-700 font-semibold">
-            Savings with part-payments: ₹{savings.toFixed(2)} ({((savings / totalInterest) * 100).toFixed(2)}%)
+            Savings with modifications: ₹{savings.toFixed(2)} ({((savings / totalInterest) * 100).toFixed(2)}%)
           </p>
         </div>
       )}
@@ -108,6 +115,7 @@ const RepaymentSchedule: React.FC<RepaymentScheduleProps> = ({
               <TableHead>Principal</TableHead>
               <TableHead>Interest</TableHead>
               <TableHead>Closing Balance</TableHead>
+              <TableHead>Rate (%)</TableHead>
               {hasModifications && <TableHead>Part Payment</TableHead>}
             </TableRow>
           </TableHeader>
@@ -115,7 +123,13 @@ const RepaymentSchedule: React.FC<RepaymentScheduleProps> = ({
             {(hasModifications ? modifiedSchedule : originalSchedule).map((row, index) => (
               <TableRow 
                 key={index}
-                className={row.isPartPayment ? "bg-blue-50" : ""}
+                className={
+                  row.isPartPayment 
+                    ? "bg-blue-50" 
+                    : hasInterestRateChange(index, hasModifications ? modifiedSchedule! : originalSchedule)
+                    ? "bg-yellow-50"
+                    : ""
+                }
               >
                 <TableCell>{row.month}</TableCell>
                 <TableCell>{format(row.date, 'MMM yyyy')}</TableCell>
@@ -124,6 +138,7 @@ const RepaymentSchedule: React.FC<RepaymentScheduleProps> = ({
                 <TableCell>₹{row.principal.toFixed(2)}</TableCell>
                 <TableCell>₹{row.interest.toFixed(2)}</TableCell>
                 <TableCell>₹{row.closingBalance.toFixed(2)}</TableCell>
+                <TableCell>{row.currentRate?.toFixed(2) || "-"}%</TableCell>
                 {hasModifications && (
                   <TableCell>
                     {row.isPartPayment && row.partPaymentAmount 

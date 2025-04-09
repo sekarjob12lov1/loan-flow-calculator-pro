@@ -1,14 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { addMonths, format, isEqual } from 'date-fns';
+import { addMonths, format, isEqual, isBefore } from 'date-fns';
 import RangeInput from './RangeInput';
 import MonthYearPicker from './MonthYearPicker';
 import RepaymentSchedule, { PaymentScheduleRow } from './RepaymentSchedule';
 import { exportToExcel } from './ExcelExporter';
 import PartPaymentManager, { PartPayment } from './PartPaymentManager';
+import InterestRateManager, { InterestRateChange } from './InterestRateManager';
+
+const appVersion = "v1.0";
 
 const PersonalLoanCalculator: React.FC = () => {
   // Loan Parameters
@@ -17,6 +21,10 @@ const PersonalLoanCalculator: React.FC = () => {
   const [tenure, setTenure] = useState(36);
   const [tenureType, setTenureType] = useState<'months' | 'years'>('months');
   const [startDate, setStartDate] = useState(new Date());
+  
+  // Interest Rate Changes
+  const [enableInterestRateChanges, setEnableInterestRateChanges] = useState(false);
+  const [interestRateChanges, setInterestRateChanges] = useState<InterestRateChange[]>([]);
   
   // Part Payment Parameters
   const [enablePartPayment, setEnablePartPayment] = useState(false);
@@ -27,6 +35,24 @@ const PersonalLoanCalculator: React.FC = () => {
   const [emi, setEmi] = useState(0);
   const [originalSchedule, setOriginalSchedule] = useState<PaymentScheduleRow[]>([]);
   const [modifiedSchedule, setModifiedSchedule] = useState<PaymentScheduleRow[]>([]);
+
+  // Version
+  const [version, setVersion] = useState(appVersion);
+  
+  // Handle interest rate change actions
+  const handleAddInterestChange = (change: InterestRateChange) => {
+    setInterestRateChanges([...interestRateChanges, change]);
+  };
+
+  const handleRemoveInterestChange = (id: string) => {
+    setInterestRateChanges(interestRateChanges.filter(c => c.id !== id));
+  };
+
+  const handleUpdateInterestChange = (id: string, updates: Partial<Omit<InterestRateChange, 'id'>>) => {
+    setInterestRateChanges(interestRateChanges.map(c => 
+      c.id === id ? { ...c, ...updates } : c
+    ));
+  };
   
   // Handle part payment actions
   const handleAddPartPayment = (partPayment: PartPayment) => {
@@ -54,6 +80,45 @@ const PersonalLoanCalculator: React.FC = () => {
     
     setEmi(emiValue);
     
+    // Prepare formatted part payments including recurring ones
+    const formattedPartPayments: {date: Date, amount: number}[] = [];
+    
+    if (enablePartPayment && partPayments.length > 0) {
+      partPayments.forEach(pp => {
+        if (pp.isRecurring && pp.recurringCount && pp.recurringCount > 1 && pp.recurringFrequency) {
+          // Add recurring payments
+          for (let i = 0; i < pp.recurringCount; i++) {
+            const paymentDate = addMonths(pp.date, i * pp.recurringFrequency);
+            formattedPartPayments.push({
+              date: paymentDate,
+              amount: pp.amount
+            });
+          }
+        } else {
+          // Add single payment
+          formattedPartPayments.push({
+            date: pp.date,
+            amount: pp.amount
+          });
+        }
+      });
+    }
+    
+    // Format interest rate changes
+    const formattedRateChanges: {date: Date, rate: number}[] = [];
+    
+    if (enableInterestRateChanges && interestRateChanges.length > 0) {
+      interestRateChanges.forEach(rc => {
+        formattedRateChanges.push({
+          date: rc.date,
+          rate: rc.rate
+        });
+      });
+      
+      // Sort by date
+      formattedRateChanges.sort((a, b) => a.date.getTime() - b.date.getTime());
+    }
+    
     // Generate original repayment schedule
     const originalScheduleData = generateSchedule(
       loanAmount, 
@@ -61,18 +126,15 @@ const PersonalLoanCalculator: React.FC = () => {
       actualTenure, 
       emiValue, 
       startDate, 
-      []
+      [], 
+      formattedRateChanges
     );
     
     setOriginalSchedule(originalScheduleData);
     
     // If part payment is enabled, calculate the modified schedule
-    if (enablePartPayment && partPayments.length > 0) {
-      // Convert PartPayment objects to the format expected by generateSchedule
-      const formattedPartPayments = partPayments.map(pp => ({
-        date: pp.date,
-        amount: pp.amount
-      }));
+    if ((enablePartPayment && formattedPartPayments.length > 0) || 
+        (enableInterestRateChanges && formattedRateChanges.length > 0)) {
       
       const modifiedScheduleData = generateSchedule(
         loanAmount, 
@@ -81,6 +143,7 @@ const PersonalLoanCalculator: React.FC = () => {
         emiValue, 
         startDate, 
         formattedPartPayments,
+        formattedRateChanges,
         reduceEMI
       );
       
@@ -88,6 +151,9 @@ const PersonalLoanCalculator: React.FC = () => {
     } else {
       setModifiedSchedule([]);
     }
+
+    // Update version to v2.0 after changes
+    setVersion("v2.0");
   }, [
     loanAmount, 
     interestRate, 
@@ -96,7 +162,9 @@ const PersonalLoanCalculator: React.FC = () => {
     startDate, 
     enablePartPayment, 
     partPayments,
-    reduceEMI
+    reduceEMI,
+    enableInterestRateChanges,
+    interestRateChanges
   ]);
 
   // Function to generate repayment schedule
@@ -107,20 +175,50 @@ const PersonalLoanCalculator: React.FC = () => {
     monthlyEmi: number,
     start: Date,
     partPayments: { date: Date, amount: number }[] = [],
+    rateChanges: { date: Date, rate: number }[] = [],
     reduceEmi: boolean = true
   ): PaymentScheduleRow[] => {
     const schedule: PaymentScheduleRow[] = [];
     let remainingPrincipal = principal;
     let currentEmi = monthlyEmi;
     let remainingMonths = tenureMonths;
-    const monthlyRate = rate / (12 * 100);
+    let currentRate = rate;
+    let monthlyRate = currentRate / (12 * 100);
+    
+    // Sort part payments by date
+    const sortedPartPayments = [...partPayments].sort((a, b) => 
+      a.date.getTime() - b.date.getTime()
+    );
+    
+    // Sort rate changes by date
+    const sortedRateChanges = [...rateChanges].sort((a, b) => 
+      a.date.getTime() - b.date.getTime()
+    );
     
     for (let month = 1; remainingPrincipal > 0; month++) {
       const currentDate = addMonths(start, month - 1);
+      
+      // Check if there's an interest rate change for this month
+      const rateChange = sortedRateChanges.find(rc => 
+        format(rc.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
+      );
+      
+      if (rateChange) {
+        currentRate = rateChange.rate;
+        monthlyRate = currentRate / (12 * 100);
+        
+        // Recalculate EMI if reducing EMI or if it's the first rate change
+        if (reduceEmi && remainingPrincipal > 0) {
+          currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
+            (Math.pow(1 + monthlyRate, remainingMonths) - 1);
+        }
+      }
+      
+      // Calculate interest for current month based on current rate
       const monthInterest = remainingPrincipal * monthlyRate;
       
       // Check if there's a part payment for this month
-      const partPayment = partPayments.find(pp => 
+      const partPayment = sortedPartPayments.find(pp => 
         format(pp.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
       );
       
@@ -141,6 +239,7 @@ const PersonalLoanCalculator: React.FC = () => {
         principal: principalPart,
         interest: monthInterest,
         closingBalance: remainingPrincipal - principalPart,
+        currentRate: currentRate // Add current interest rate to the schedule
       };
       
       // Update remaining principal
@@ -170,6 +269,7 @@ const PersonalLoanCalculator: React.FC = () => {
         schedule.push(entry);
       }
       
+      remainingMonths--;
       if (remainingPrincipal <= 0) break;
     }
     
@@ -178,17 +278,22 @@ const PersonalLoanCalculator: React.FC = () => {
   
   // Function to handle Excel export
   const handleExportExcel = () => {
-    const dataToExport = enablePartPayment ? modifiedSchedule : originalSchedule;
+    const dataToExport = (enablePartPayment || enableInterestRateChanges) ? modifiedSchedule : originalSchedule;
     exportToExcel(dataToExport, 'personal-loan-schedule', enablePartPayment);
   };
   
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Personal Loan Calculator</CardTitle>
-        <CardDescription>
-          Calculate your personal loan EMI and payment schedule
-        </CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Personal Loan Calculator</CardTitle>
+            <CardDescription>
+              Calculate your personal loan EMI and payment schedule
+            </CardDescription>
+          </div>
+          <div className="text-sm text-muted-foreground">{version}</div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -255,6 +360,44 @@ const PersonalLoanCalculator: React.FC = () => {
             />
             
             <div className="mt-6">
+              <h3 className="text-lg font-medium mb-4">Interest Rate Changes</h3>
+              
+              <div className="flex items-center mb-4">
+                <input 
+                  type="checkbox" 
+                  id="p-enableInterestRateChanges"
+                  checked={enableInterestRateChanges}
+                  onChange={(e) => {
+                    setEnableInterestRateChanges(e.target.checked);
+                    if (e.target.checked && interestRateChanges.length === 0) {
+                      // Add a default interest rate change when enabling
+                      const defaultDate = new Date(startDate);
+                      defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+                      handleAddInterestChange({
+                        id: `rate-change-${Date.now()}`,
+                        date: defaultDate,
+                        rate: interestRate + 0.5
+                      });
+                    }
+                  }}
+                  className="mr-2"
+                />
+                <Label htmlFor="p-enableInterestRateChanges">Enable Interest Rate Changes</Label>
+              </div>
+              
+              {enableInterestRateChanges && (
+                <InterestRateManager
+                  interestChanges={interestRateChanges}
+                  onAddChange={handleAddInterestChange}
+                  onRemoveChange={handleRemoveInterestChange}
+                  onUpdateChange={handleUpdateInterestChange}
+                  loanStartDate={startDate}
+                  baseRate={interestRate}
+                />
+              )}
+            </div>
+            
+            <div className="mt-6">
               <h3 className="text-lg font-medium mb-4">Part Payment Options</h3>
               
               <div className="flex items-center mb-4">
@@ -271,7 +414,10 @@ const PersonalLoanCalculator: React.FC = () => {
                       handleAddPartPayment({
                         id: `payment-${Date.now()}`,
                         date: defaultDate,
-                        amount: 50000
+                        amount: 50000,
+                        isRecurring: false,
+                        recurringCount: 1,
+                        recurringFrequency: 3
                       });
                     }
                   }}
@@ -364,14 +510,14 @@ const PersonalLoanCalculator: React.FC = () => {
                 <TabsContent value="repayment">
                   <RepaymentSchedule
                     originalSchedule={originalSchedule}
-                    modifiedSchedule={enablePartPayment ? modifiedSchedule : undefined}
+                    modifiedSchedule={(enablePartPayment || enableInterestRateChanges) ? modifiedSchedule : undefined}
                     loanType="personal"
                     exportToExcel={handleExportExcel}
                   />
                 </TabsContent>
                 
                 <TabsContent value="partpayment">
-                  {enablePartPayment ? (
+                  {(enablePartPayment || enableInterestRateChanges) ? (
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Savings Analysis</h3>
                       <div className="bg-finance-light p-4 rounded-lg border">
