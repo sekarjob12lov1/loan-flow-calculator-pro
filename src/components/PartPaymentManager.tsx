@@ -29,6 +29,8 @@ interface PartPaymentManagerProps {
   showRecurringOptions?: boolean;
 }
 
+type PaymentMode = "single" | "multiple" | "recurring";
+
 const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
   partPayments,
   onAddPartPayment,
@@ -38,7 +40,7 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
   maxAmount = 1000000,
   showRecurringOptions = true
 }) => {
-  const [paymentMode, setPaymentMode] = useState<"single" | "recurring">("single");
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("single");
 
   const handleAddPartPayment = () => {
     // Calculate a default date 6 months after loan start or after the last payment
@@ -81,8 +83,9 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
       {showRecurringOptions && (
         <div className="mb-4">
           <Label className="block mb-2">Payment Mode</Label>
-          <ToggleGroup type="single" value={paymentMode} onValueChange={(value) => value && setPaymentMode(value as "single" | "recurring")}>
+          <ToggleGroup type="single" value={paymentMode} onValueChange={(value) => value && setPaymentMode(value as PaymentMode)}>
             <ToggleGroupItem value="single">Single Date</ToggleGroupItem>
+            <ToggleGroupItem value="multiple">Multiple Dates</ToggleGroupItem>
             <ToggleGroupItem value="recurring">Recurring</ToggleGroupItem>
           </ToggleGroup>
         </div>
@@ -126,6 +129,21 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
                 startDate={loanStartDate}
                 allowPastDates={true}
               />
+            ) : paymentMode === "multiple" ? (
+              <div>
+                <Label className="block mb-2" htmlFor={`payment-date-${payment.id}`}>Payment Date {index + 1}</Label>
+                <MonthYearPicker
+                  label=""
+                  selectedDate={payment.date}
+                  onChange={(date) => onUpdatePartPayment(payment.id, { 
+                    date,
+                    isRecurring: false,
+                    recurringCount: 1
+                  })}
+                  startDate={loanStartDate}
+                  allowPastDates={true}
+                />
+              </div>
             ) : (
               <div>
                 <Label className="block mb-2" htmlFor={`recurring-${payment.id}`}>Number of Payments</Label>
