@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,10 +10,11 @@ import RepaymentSchedule, { PaymentScheduleRow } from './RepaymentSchedule';
 import { exportToExcel } from './ExcelExporter';
 import PartPaymentManager, { PartPayment } from './PartPaymentManager';
 import InterestRateManager, { InterestRateChange } from './InterestRateManager';
-
-const appVersion = "v1.0";
+import { useAppVersion } from '@/App';
 
 const GoldLoanCalculator: React.FC = () => {
+  const { version } = useAppVersion();
+  
   // Loan Parameters
   const [loanAmount, setLoanAmount] = useState(100000);
   const [interestRate, setInterestRate] = useState(7.5);
@@ -36,8 +36,13 @@ const GoldLoanCalculator: React.FC = () => {
   const [originalSchedule, setOriginalSchedule] = useState<PaymentScheduleRow[]>([]);
   const [modifiedSchedule, setModifiedSchedule] = useState<PaymentScheduleRow[]>([]);
 
-  // Version
-  const [version, setVersion] = useState(appVersion);
+  // Reset interest rate changes feature when switching to v1.0
+  useEffect(() => {
+    if (version === "v1.0" && enableInterestRateChanges) {
+      setEnableInterestRateChanges(false);
+      setInterestRateChanges([]);
+    }
+  }, [version, enableInterestRateChanges]);
 
   // Handle interest rate change actions
   const handleAddInterestChange = (change: InterestRateChange) => {
@@ -107,7 +112,7 @@ const GoldLoanCalculator: React.FC = () => {
     // Format interest rate changes
     const formattedRateChanges: {date: Date, rate: number}[] = [];
     
-    if (enableInterestRateChanges && interestRateChanges.length > 0) {
+    if (version === "v2.0" && enableInterestRateChanges && interestRateChanges.length > 0) {
       interestRateChanges.forEach(rc => {
         formattedRateChanges.push({
           date: rc.date,
@@ -134,7 +139,7 @@ const GoldLoanCalculator: React.FC = () => {
     
     // If part payment is enabled, calculate the modified schedule
     if ((enablePartPayment && formattedPartPayments.length > 0) || 
-        (enableInterestRateChanges && formattedRateChanges.length > 0)) {
+        (version === "v2.0" && enableInterestRateChanges && formattedRateChanges.length > 0)) {
       
       const modifiedScheduleData = generateSchedule(
         loanAmount, 
@@ -151,9 +156,6 @@ const GoldLoanCalculator: React.FC = () => {
     } else {
       setModifiedSchedule([]);
     }
-
-    // Update version to v2.0 after changes
-    setVersion("v2.0");
   }, [
     loanAmount, 
     interestRate, 
@@ -164,7 +166,8 @@ const GoldLoanCalculator: React.FC = () => {
     partPayments,
     reduceEMI,
     enableInterestRateChanges,
-    interestRateChanges
+    interestRateChanges,
+    version
   ]);
 
   // Function to generate repayment schedule
@@ -359,43 +362,45 @@ const GoldLoanCalculator: React.FC = () => {
               allowPastDates={true}
             />
             
-            <div className="mt-6">
-              <h3 className="text-lg font-medium mb-4">Interest Rate Changes</h3>
-              
-              <div className="flex items-center mb-4">
-                <input 
-                  type="checkbox" 
-                  id="enableInterestRateChanges"
-                  checked={enableInterestRateChanges}
-                  onChange={(e) => {
-                    setEnableInterestRateChanges(e.target.checked);
-                    if (e.target.checked && interestRateChanges.length === 0) {
-                      // Add a default interest rate change when enabling
-                      const defaultDate = new Date(startDate);
-                      defaultDate.setFullYear(defaultDate.getFullYear() + 1);
-                      handleAddInterestChange({
-                        id: `rate-change-${Date.now()}`,
-                        date: defaultDate,
-                        rate: interestRate + 0.5
-                      });
-                    }
-                  }}
-                  className="mr-2"
-                />
-                <Label htmlFor="enableInterestRateChanges">Enable Interest Rate Changes</Label>
+            {version === "v2.0" && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Interest Rate Changes</h3>
+                
+                <div className="flex items-center mb-4">
+                  <input 
+                    type="checkbox" 
+                    id="enableInterestRateChanges"
+                    checked={enableInterestRateChanges}
+                    onChange={(e) => {
+                      setEnableInterestRateChanges(e.target.checked);
+                      if (e.target.checked && interestRateChanges.length === 0) {
+                        // Add a default interest rate change when enabling
+                        const defaultDate = new Date(startDate);
+                        defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+                        handleAddInterestChange({
+                          id: `rate-change-${Date.now()}`,
+                          date: defaultDate,
+                          rate: interestRate + 0.5
+                        });
+                      }
+                    }}
+                    className="mr-2"
+                  />
+                  <Label htmlFor="enableInterestRateChanges">Enable Interest Rate Changes</Label>
+                </div>
+                
+                {enableInterestRateChanges && (
+                  <InterestRateManager
+                    interestChanges={interestRateChanges}
+                    onAddChange={handleAddInterestChange}
+                    onRemoveChange={handleRemoveInterestChange}
+                    onUpdateChange={handleUpdateInterestChange}
+                    loanStartDate={startDate}
+                    baseRate={interestRate}
+                  />
+                )}
               </div>
-              
-              {enableInterestRateChanges && (
-                <InterestRateManager
-                  interestChanges={interestRateChanges}
-                  onAddChange={handleAddInterestChange}
-                  onRemoveChange={handleRemoveInterestChange}
-                  onUpdateChange={handleUpdateInterestChange}
-                  loanStartDate={startDate}
-                  baseRate={interestRate}
-                />
-              )}
-            </div>
+            )}
             
             <div className="mt-6">
               <h3 className="text-lg font-medium mb-4">Part Payment Options</h3>
@@ -415,7 +420,7 @@ const GoldLoanCalculator: React.FC = () => {
                         id: `payment-${Date.now()}`,
                         date: defaultDate,
                         amount: 10000,
-                        isRecurring: false,
+                        isRecurring: version === "v2.0" ? false : false,
                         recurringCount: 1,
                         recurringFrequency: 3
                       });
@@ -435,6 +440,7 @@ const GoldLoanCalculator: React.FC = () => {
                     onUpdatePartPayment={handleUpdatePartPayment}
                     loanStartDate={startDate}
                     maxAmount={loanAmount}
+                    showRecurringOptions={version === "v2.0"}
                   />
                   
                   <div className="mb-4 mt-4">

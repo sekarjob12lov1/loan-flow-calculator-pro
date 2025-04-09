@@ -6,6 +6,7 @@ import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import MonthYearPicker from './MonthYearPicker';
 import { Label } from '@/components/ui/label';
+import { useAppVersion } from '@/App';
 
 export interface InterestRateChange {
   id: string;
@@ -30,6 +31,13 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
   loanStartDate,
   baseRate
 }) => {
+  const { version } = useAppVersion();
+  
+  // Only show this component if version is v2.0
+  if (version !== "v2.0") {
+    return null;
+  }
+
   const handleAddChange = () => {
     // Calculate a default date 1 year after loan start or after the last change
     let defaultDate = new Date(loanStartDate);
