@@ -26,6 +26,7 @@ interface PartPaymentManagerProps {
   onUpdatePartPayment: (id: string, updates: Partial<Omit<PartPayment, 'id'>>) => void;
   loanStartDate: Date;
   maxAmount?: number;
+  showRecurringOptions?: boolean;
 }
 
 const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
@@ -34,7 +35,8 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
   onRemovePartPayment,
   onUpdatePartPayment,
   loanStartDate,
-  maxAmount = 1000000
+  maxAmount = 1000000,
+  showRecurringOptions = true
 }) => {
   const [paymentMode, setPaymentMode] = useState<"single" | "recurring">("single");
 
@@ -76,13 +78,15 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
         </Button>
       </div>
 
-      <div className="mb-4">
-        <Label className="block mb-2">Payment Mode</Label>
-        <ToggleGroup type="single" value={paymentMode} onValueChange={(value) => value && setPaymentMode(value as "single" | "recurring")}>
-          <ToggleGroupItem value="single">Single Date</ToggleGroupItem>
-          <ToggleGroupItem value="recurring">Recurring</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
+      {showRecurringOptions && (
+        <div className="mb-4">
+          <Label className="block mb-2">Payment Mode</Label>
+          <ToggleGroup type="single" value={paymentMode} onValueChange={(value) => value && setPaymentMode(value as "single" | "recurring")}>
+            <ToggleGroupItem value="single">Single Date</ToggleGroupItem>
+            <ToggleGroupItem value="recurring">Recurring</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      )}
 
       {partPayments.length === 0 && (
         <p className="text-sm text-muted-foreground py-2">No part payments scheduled.</p>
@@ -110,7 +114,7 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
               />
             </div>
             
-            {paymentMode === "single" ? (
+            {(!showRecurringOptions || paymentMode === "single") ? (
               <MonthYearPicker
                 label="Payment Date"
                 selectedDate={payment.date}
@@ -157,7 +161,7 @@ const PartPaymentManager: React.FC<PartPaymentManagerProps> = ({
             </Button>
           </div>
 
-          {paymentMode === "recurring" && (
+          {showRecurringOptions && paymentMode === "recurring" && (
             <div className="grid grid-cols-2 gap-3">
               <MonthYearPicker
                 label="First Payment Date"
