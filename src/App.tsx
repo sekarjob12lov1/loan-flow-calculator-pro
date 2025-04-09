@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { createContext, useState, useContext } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { ThemeProvider } from "@/hooks/use-theme";
 
 // Create a context for the app version
 export interface AppVersionContextType {
@@ -28,19 +29,21 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppVersionContext.Provider value={{ version, setVersion }}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AppVersionContext.Provider>
+      <ThemeProvider defaultTheme="light">
+        <AppVersionContext.Provider value={{ version, setVersion }}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AppVersionContext.Provider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

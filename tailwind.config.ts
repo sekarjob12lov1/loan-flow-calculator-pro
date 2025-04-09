@@ -63,14 +63,19 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Financial theme colors
+				// Enhanced Finance theme colors
 				finance: {
-					primary: '#1E88E5', // Blue
-					secondary: '#43A047', // Green for positive numbers
+					primary: '#1E429F', // Deeper blue
+					secondary: '#42A847', // Rich green for positive numbers
 					negative: '#E53935', // Red for negative numbers
 					accent: '#FFB74D', // Gold color for gold loans
 					light: '#F5F7FA', // Light background
-					dark: '#263238', // Dark text
+					dark: '#1A1F2C', // Dark mode background
+					chart1: '#4299E1', // Blue for charts
+					chart2: '#48BB78', // Green for charts
+					chart3: '#F6AD55', // Orange for charts
+					chart4: '#9F7AEA', // Purple for charts
+					chart5: '#ED64A6', // Pink for charts
 				}
 			},
 			borderRadius: {
@@ -94,11 +99,27 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					from: {
+						opacity: '0',
+						transform: 'translateY(8px)'
+					},
+					to: {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.3s ease-out'
+			},
+			backgroundImage: {
+				'gradient-1': 'linear-gradient(to right, #1E429F, #42A847)',
+				'gradient-2': 'linear-gradient(to right, #FFB74D, #E53935)',
+				'gradient-card': 'linear-gradient(225deg, #FFE29F 0%, #FFA99F 48%, #FF719A 100%)'
 			}
 		}
 	},
