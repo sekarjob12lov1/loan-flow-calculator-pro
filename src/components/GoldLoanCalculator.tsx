@@ -10,10 +10,12 @@ import RepaymentSchedule, { PaymentScheduleRow } from './RepaymentSchedule';
 import { exportToExcel } from './ExcelExporter';
 import PartPaymentManager, { PartPayment } from './PartPaymentManager';
 import InterestRateManager, { InterestRateChange } from './InterestRateManager';
-import { useAppVersion, useTheme } from '@/App';
+import { useAppVersion } from '@/App';
+import { useTheme } from '@/hooks/use-theme';
 
 const GoldLoanCalculator: React.FC = () => {
-  const { version, theme } = useAppVersion();
+  const { version } = useAppVersion();
+  const { theme } = useTheme();
   
   // Loan Parameters
   const [loanAmount, setLoanAmount] = useState<number>(100000);
