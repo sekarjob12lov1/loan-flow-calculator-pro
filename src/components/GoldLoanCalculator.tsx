@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { addMonths, format, isEqual, isBefore } from 'date-fns';
+import { addMonths, format, isEqual, isBefore, isValid } from 'date-fns';
 import RangeInput from './RangeInput';
 import MonthYearPicker from './MonthYearPicker';
 import RepaymentSchedule, { PaymentScheduleRow } from './RepaymentSchedule';
@@ -229,14 +229,17 @@ const GoldLoanCalculator: React.FC = () => {
       // For v3.0, we check exact date, not just month/year
       const rateChange = version === "v3.0" 
         ? sortedRateChanges.find(rc => 
+            rc.date && isValid(rc.date) &&
             rc.date.getTime() <= currentDate.getTime() && 
             !sortedRateChanges.some(other => 
               other !== rc && 
+              other.date && isValid(other.date) &&
               other.date.getTime() <= currentDate.getTime() && 
               other.date.getTime() > rc.date.getTime()
             )
           )
         : sortedRateChanges.find(rc => 
+            rc.date && isValid(rc.date) &&
             format(rc.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
           );
       
@@ -259,6 +262,7 @@ const GoldLoanCalculator: React.FC = () => {
       
       // Check if there's a part payment for this month
       const partPayment = sortedPartPayments.find(pp => 
+        pp.date && isValid(pp.date) &&
         format(pp.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
       );
       
