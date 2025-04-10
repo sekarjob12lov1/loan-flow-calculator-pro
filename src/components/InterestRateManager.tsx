@@ -86,7 +86,7 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
               <Input
                 id={`rate-${change.id}`}
                 type="text"
-                value={change.rate || ''}
+                value={change.rate === 0 ? '' : change.rate}
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === '') {
@@ -94,6 +94,7 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
                     return;
                   }
                   
+                  // Allow decimal values by properly parsing the input
                   const parsedValue = parseFloat(value);
                   if (!isNaN(parsedValue)) {
                     onUpdateChange(change.id, {
@@ -102,6 +103,8 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
                   }
                 }}
                 placeholder="Enter rate"
+                inputMode="decimal"
+                step="0.01"
               />
             </div>
             
