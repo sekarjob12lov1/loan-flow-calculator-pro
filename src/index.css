@@ -43,6 +43,12 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Finance theme colors */
+    --finance-primary: 224 64% 33%;
+    --finance-secondary: 142 43% 45%;
+    --finance-accent: 35 90% 60%;
+    --finance-savings: 141 70% 47%;
   }
 
   .dark {
@@ -82,6 +88,12 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Finance theme dark mode colors */
+    --finance-primary: 224 76% 48%;
+    --finance-secondary: 142 60% 45%;
+    --finance-accent: 35 90% 65%;
+    --finance-savings: 141 70% 50%;
   }
 }
 
@@ -108,4 +120,53 @@
   .loan-card {
     @apply bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-xl;
   }
+  
+  /* Vibrant savings comparison tile */
+  .savings-tile {
+    @apply bg-gradient-to-br from-emerald-500 to-teal-700 dark:from-emerald-600 dark:to-teal-900 text-white rounded-lg shadow-lg border border-emerald-400 dark:border-emerald-800 p-4 transition-all duration-300;
+  }
+  
+  .savings-tile-heading {
+    @apply text-white dark:text-white/90 font-bold;
+  }
+  
+  .savings-amount {
+    @apply text-xl font-bold text-white dark:text-white;
+  }
+  
+  .savings-label {
+    @apply text-emerald-100 dark:text-emerald-200;
+  }
+  
+  /* Performance optimization */
+  * {
+    @apply will-change-auto;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Finance-specific styles */
+.bg-finance-light {
+  @apply bg-secondary/50 dark:bg-secondary/25;
+}
+
+.text-green-savings {
+  @apply text-emerald-600 dark:text-emerald-400 font-medium;
+}
+
+/* Enhanced dark mode text contrast */
+.dark .text-muted-foreground {
+  @apply text-gray-300;
+}
+
+.dark .savings-comparison {
+  @apply bg-gradient-to-br from-emerald-700 to-teal-900 text-white;
 }

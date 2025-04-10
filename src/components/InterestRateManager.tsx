@@ -85,19 +85,22 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
               <Label className="block mb-2" htmlFor={`rate-${change.id}`}>New Rate (%)</Label>
               <Input
                 id={`rate-${change.id}`}
-                type="number"
-                value={change.rate}
+                type="text"
+                value={change.rate || ''}
                 onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (!isNaN(value)) {
+                  const value = e.target.value;
+                  if (value === '') {
+                    onUpdateChange(change.id, { rate: 0 });
+                    return;
+                  }
+                  
+                  const parsedValue = parseFloat(value);
+                  if (!isNaN(parsedValue)) {
                     onUpdateChange(change.id, {
-                      rate: Math.min(Math.max(value, 1), 30)
+                      rate: Math.min(Math.max(parsedValue, 1), 30)
                     });
                   }
                 }}
-                min={1}
-                max={30}
-                step={0.1}
               />
             </div>
             

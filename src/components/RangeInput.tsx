@@ -45,7 +45,6 @@ const RangeInput = ({
     
     const parsedValue = parseFloat(newValue);
     if (!isNaN(parsedValue)) {
-      // Don't clamp values on input - allow users to enter any value
       onChange(parsedValue);
     }
   };

@@ -8,10 +8,12 @@ import PersonalLoanCalculator from '@/components/PersonalLoanCalculator';
 import VersionSelector from '@/components/VersionSelector';
 import { useAppVersion } from '@/App';
 import { Card, CardContent } from '@/components/ui/card';
+import { useTheme } from '@/hooks/use-theme';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<string>('gold');
   const { version, setVersion, currentVersionInfo } = useAppVersion();
+  const { theme } = useTheme();
 
   const handleVersionChange = (newVersion: string) => {
     setVersion(newVersion);

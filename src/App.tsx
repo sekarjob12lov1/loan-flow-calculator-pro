@@ -86,11 +86,24 @@ const appVersions: VersionInfo[] = [
       "Empty value support for flexible input"
     ],
     releaseDate: "2024-04-10"
+  },
+  {
+    version: "v3.1",
+    label: "Version 3.1",
+    description: "Enhanced Experience & Performance",
+    features: [
+      "Performance optimizations",
+      "Blank value support for interest rate changes",
+      "Vibrant savings comparison visualization",
+      "Dark mode color enhancements for better visibility",
+      "Optimized calculations for faster rendering"
+    ],
+    releaseDate: "2024-04-11"
   }
 ];
 
 export const AppVersionContext = createContext<AppVersionContextType>({
-  version: "v3.0", // Default to latest version
+  version: "v3.1", // Default to latest version
   setVersion: () => {},
   versionInfo: appVersions,
   currentVersionInfo: appVersions[appVersions.length - 1]
@@ -98,10 +111,17 @@ export const AppVersionContext = createContext<AppVersionContextType>({
 
 export const useAppVersion = () => useContext(AppVersionContext);
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Performance improvement
+      staleTime: 300000, // 5 minutes
+    },
+  },
+});
 
 const App = () => {
-  const [version, setVersion] = useState<string>("v3.0"); // Latest version as default
+  const [version, setVersion] = useState<string>("v3.1"); // Latest version as default
 
   // Get current version info
   const currentVersionInfo = appVersions.find(v => v.version === version) || appVersions[appVersions.length - 1];
