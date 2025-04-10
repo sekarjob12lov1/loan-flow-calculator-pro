@@ -18,9 +18,9 @@ const GoldLoanCalculator: React.FC = () => {
   const { theme } = useTheme();
   
   // Loan Parameters
-  const [loanAmount, setLoanAmount] = useState<number>(100000);
-  const [interestRate, setInterestRate] = useState<number>(7.5);
-  const [tenure, setTenure] = useState<number>(24);
+  const [loanAmount, setLoanAmount] = useState<number>(0);
+  const [interestRate, setInterestRate] = useState<number>(0);
+  const [tenure, setTenure] = useState<number>(0);
   const [tenureType, setTenureType] = useState<'months' | 'years'>('months');
   const [startDate, setStartDate] = useState(new Date());
   
@@ -85,7 +85,7 @@ const GoldLoanCalculator: React.FC = () => {
         changes.push({
           date: rc.date,
           rate: rc.rate,
-          reduceEMI: version === "v3.0" || version === "v3.1" ? rc.reduceEMI : reduceEMI
+          reduceEMI: (version === "v3.0" || version === "v3.1" || version === "v3.2") ? rc.reduceEMI : reduceEMI
         });
       });
       
@@ -127,7 +127,7 @@ const GoldLoanCalculator: React.FC = () => {
   // Calculate EMI and loan schedules whenever relevant parameters change
   useEffect(() => {
     // Skip calculation if inputs are missing in v3.0+
-    if ((version === "v3.0" || version === "v3.1") && (!loanAmount || !interestRate || !tenure)) {
+    if ((version === "v3.0" || version === "v3.1" || version === "v3.2") && (!loanAmount || !interestRate || !tenure)) {
       setEmi(0);
       setOriginalSchedule([]);
       setModifiedSchedule([]);
@@ -322,7 +322,7 @@ const GoldLoanCalculator: React.FC = () => {
     exportToExcel(dataToExport, 'gold-loan-schedule', enablePartPayment);
   };
   
-  // Calculate savings for display
+  // Calculate savings for display - optimized for performance
   const savings = React.useMemo(() => {
     if (!originalSchedule.length || !modifiedSchedule.length) return 0;
     
@@ -355,10 +355,10 @@ const GoldLoanCalculator: React.FC = () => {
               value={loanAmount}
               onChange={setLoanAmount}
               min={10000}
-              max={(version === "v3.0" || version === "v3.1") ? 1000000000 : 10000000}
+              max={(version === "v3.0" || version === "v3.1" || version === "v3.2") ? 1000000000 : 10000000}
               step={10000}
               unit="₹"
-              allowEmpty={(version === "v3.0" || version === "v3.1")}
+              allowEmpty={(version === "v3.0" || version === "v3.1" || version === "v3.2")}
             />
             
             <RangeInput
@@ -369,7 +369,7 @@ const GoldLoanCalculator: React.FC = () => {
               max={30}
               step={0.1}
               unit="%"
-              allowEmpty={(version === "v3.0" || version === "v3.1")}
+              allowEmpty={(version === "v3.0" || version === "v3.1" || version === "v3.2")}
             />
             
             <div className="mb-4">
@@ -383,7 +383,7 @@ const GoldLoanCalculator: React.FC = () => {
                     min={1}
                     max={tenureType === 'years' ? 30 : 360}
                     step={1}
-                    allowEmpty={(version === "v3.0" || version === "v3.1")}
+                    allowEmpty={(version === "v3.0" || version === "v3.1" || version === "v3.2")}
                   />
                 </div>
                 <div>
@@ -430,7 +430,7 @@ const GoldLoanCalculator: React.FC = () => {
                         handleAddInterestChange({
                           id: `rate-change-${Date.now()}`,
                           date: defaultDate,
-                          rate: interestRate + 0.5,
+                          rate: 0,
                           reduceEMI: true
                         });
                       }
@@ -470,7 +470,7 @@ const GoldLoanCalculator: React.FC = () => {
                       handleAddPartPayment({
                         id: `payment-${Date.now()}`,
                         date: defaultDate,
-                        amount: 10000,
+                        amount: 0,
                         isRecurring: version !== "v1.0" ? false : false,
                         recurringCount: 1,
                         recurringFrequency: 3
@@ -490,7 +490,7 @@ const GoldLoanCalculator: React.FC = () => {
                     onRemovePartPayment={handleRemovePartPayment}
                     onUpdatePartPayment={handleUpdatePartPayment}
                     loanStartDate={startDate}
-                    maxAmount={version === "v3.0" ? loanAmount : loanAmount}
+                    maxAmount={(version === "v3.0" || version === "v3.1" || version === "v3.2") ? loanAmount : loanAmount}
                     showRecurringOptions={version !== "v1.0"}
                   />
                   
@@ -578,7 +578,7 @@ const GoldLoanCalculator: React.FC = () => {
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Savings Analysis</h3>
                       
-                      <div className="savings-tile mb-4 animate-fade-in">
+                      <div className="savings-comparison-tile mb-4 animate-fade-in">
                         <div className="text-center py-2">
                           <h4 className="savings-tile-heading mb-1">TOTAL SAVINGS</h4>
                           <p className="text-2xl font-bold">₹{savings.toFixed(2)}</p>
@@ -628,7 +628,7 @@ const GoldLoanCalculator: React.FC = () => {
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-gray-500 dark:text-gray-400">
-                        {(version === "v3.0" || version === "v3.1") && (!loanAmount || !interestRate || !tenure) 
+                        {(version === "v3.0" || version === "v3.1" || version === "v3.2") && (!loanAmount || !interestRate || !tenure) 
                           ? "Please enter loan details to see potential savings" 
                           : "Enable part payment or interest rate changes to see potential savings"}
                       </p>

@@ -68,7 +68,7 @@
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted-foreground: 215 20.2% 75%; /* Enhanced contrast */
 
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
@@ -89,11 +89,11 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
     
-    /* Finance theme dark mode colors */
-    --finance-primary: 224 76% 48%;
-    --finance-secondary: 142 60% 45%;
-    --finance-accent: 35 90% 65%;
-    --finance-savings: 141 70% 50%;
+    /* Finance theme dark mode colors with enhanced contrast */
+    --finance-primary: 224 76% 60%;  /* Brighter blue */
+    --finance-secondary: 142 60% 55%; /* Brighter green */
+    --finance-accent: 35 100% 70%;   /* Brighter orange */
+    --finance-savings: 141 70% 60%;  /* Brighter savings green */
   }
 }
 
@@ -123,11 +123,11 @@
   
   /* Vibrant savings comparison tile */
   .savings-tile {
-    @apply bg-gradient-to-br from-emerald-500 to-teal-700 dark:from-emerald-600 dark:to-teal-900 text-white rounded-lg shadow-lg border border-emerald-400 dark:border-emerald-800 p-4 transition-all duration-300;
+    @apply bg-gradient-to-br from-emerald-500 to-teal-700 dark:from-emerald-600 dark:to-teal-800 text-white rounded-lg shadow-lg border border-emerald-400 dark:border-emerald-800 p-4 transition-all duration-300;
   }
   
   .savings-tile-heading {
-    @apply text-white dark:text-white/90 font-bold;
+    @apply text-white dark:text-white/95 font-bold;
   }
   
   .savings-amount {
@@ -151,6 +151,15 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  
+  /* Enhanced savings tile with more vibrant colors */
+  .savings-comparison-tile {
+    @apply bg-gradient-to-br from-violet-600 to-blue-700 dark:from-violet-500 dark:to-blue-800 text-white rounded-lg p-5 shadow-lg border border-violet-400 dark:border-violet-700;
+  }
+  
+  .savings-value {
+    @apply text-2xl font-bold text-white;
+  }
 }
 
 /* Finance-specific styles */
@@ -168,5 +177,5 @@
 }
 
 .dark .savings-comparison {
-  @apply bg-gradient-to-br from-emerald-700 to-teal-900 text-white;
+  @apply bg-gradient-to-br from-violet-600 to-blue-800 text-white;
 }

@@ -55,7 +55,7 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
     onAddChange({
       id: `rate-change-${Date.now()}`,
       date: defaultDate,
-      rate: baseRate + 0.5,
+      rate: 0, // Initialize with blank value
       reduceEMI: true
     });
   };
@@ -97,10 +97,11 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
                   const parsedValue = parseFloat(value);
                   if (!isNaN(parsedValue)) {
                     onUpdateChange(change.id, {
-                      rate: Math.min(Math.max(parsedValue, 1), 30)
+                      rate: parsedValue
                     });
                   }
                 }}
+                placeholder="Enter rate"
               />
             </div>
             
@@ -139,7 +140,7 @@ const InterestRateManager: React.FC<InterestRateManagerProps> = ({
             </Button>
           </div>
           
-          {version === "v3.0" && (
+          {(version === "v3.0" || version === "v3.1") && (
             <div className="mt-2">
               <Label className="block mb-2">After Rate Change</Label>
               <RadioGroup 

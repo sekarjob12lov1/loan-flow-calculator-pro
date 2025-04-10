@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -16,9 +16,9 @@ const PersonalLoanCalculator: React.FC = () => {
   const { version } = useAppVersion();
   
   // Loan Parameters
-  const [loanAmount, setLoanAmount] = useState<number>(300000);
-  const [interestRate, setInterestRate] = useState<number>(12);
-  const [tenure, setTenure] = useState<number>(36);
+  const [loanAmount, setLoanAmount] = useState<number>(0);
+  const [interestRate, setInterestRate] = useState<number>(0);
+  const [tenure, setTenure] = useState<number>(0);
   const [tenureType, setTenureType] = useState<'months' | 'years'>('months');
   const [startDate, setStartDate] = useState(new Date());
   
@@ -69,7 +69,7 @@ const PersonalLoanCalculator: React.FC = () => {
   // Calculate EMI and loan schedules whenever relevant parameters change
   useEffect(() => {
     // Skip calculation if inputs are missing in v3.0+
-    if (version === "v3.0" && (!loanAmount || !interestRate || !tenure)) {
+    if ((version === "v3.0" || version === "v3.1") && (!loanAmount || !interestRate || !tenure)) {
       setEmi(0);
       setOriginalSchedule([]);
       setModifiedSchedule([]);
@@ -304,6 +304,16 @@ const PersonalLoanCalculator: React.FC = () => {
     exportToExcel(dataToExport, 'personal-loan-schedule', enablePartPayment);
   };
   
+  // Calculate savings for performance optimization
+  const savings = React.useMemo(() => {
+    if (!originalSchedule.length || !modifiedSchedule.length) return 0;
+    
+    const originalInterest = originalSchedule.reduce((sum, row) => sum + row.interest, 0);
+    const modifiedInterest = modifiedSchedule.reduce((sum, row) => sum + row.interest, 0);
+    
+    return originalInterest - modifiedInterest;
+  }, [originalSchedule, modifiedSchedule]);
+  
   return (
     <Card className="w-full">
       <CardHeader>
@@ -327,10 +337,10 @@ const PersonalLoanCalculator: React.FC = () => {
               value={loanAmount}
               onChange={setLoanAmount}
               min={50000}
-              max={version === "v3.0" ? 1000000000 : 5000000}
+              max={(version === "v3.0" || version === "v3.1") ? 1000000000 : 5000000}
               step={10000}
               unit="₹"
-              allowEmpty={version === "v3.0"}
+              allowEmpty={(version === "v3.0" || version === "v3.1")}
             />
             
             <RangeInput
@@ -341,7 +351,7 @@ const PersonalLoanCalculator: React.FC = () => {
               max={30}
               step={0.1}
               unit="%"
-              allowEmpty={version === "v3.0"}
+              allowEmpty={(version === "v3.0" || version === "v3.1")}
             />
             
             <div className="mb-4">
@@ -355,7 +365,7 @@ const PersonalLoanCalculator: React.FC = () => {
                     min={1}
                     max={tenureType === 'years' ? 30 : 360}
                     step={1}
-                    allowEmpty={version === "v3.0"}
+                    allowEmpty={(version === "v3.0" || version === "v3.1")}
                   />
                 </div>
                 <div>
@@ -401,7 +411,7 @@ const PersonalLoanCalculator: React.FC = () => {
                       handleAddInterestChange({
                         id: `rate-change-${Date.now()}`,
                         date: defaultDate,
-                        rate: interestRate + 0.5,
+                        rate: 0,
                         reduceEMI: true
                       });
                     }
@@ -440,7 +450,7 @@ const PersonalLoanCalculator: React.FC = () => {
                       handleAddPartPayment({
                         id: `payment-${Date.now()}`,
                         date: defaultDate,
-                        amount: 50000,
+                        amount: 0,
                         isRecurring: false,
                         recurringCount: 1,
                         recurringFrequency: 3
@@ -460,7 +470,7 @@ const PersonalLoanCalculator: React.FC = () => {
                     onRemovePartPayment={handleRemovePartPayment}
                     onUpdatePartPayment={handleUpdatePartPayment}
                     loanStartDate={startDate}
-                    maxAmount={version === "v3.0" ? loanAmount : loanAmount / 2}
+                    maxAmount={(version === "v3.0" || version === "v3.1") ? loanAmount : loanAmount / 2}
                   />
                   
                   <div className="mb-4 mt-4">
@@ -491,34 +501,34 @@ const PersonalLoanCalculator: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-gray-500">Loan Amount</p>
+                  <p className="text-gray-500 dark:text-gray-300">Loan Amount</p>
                   <p className="text-lg font-semibold">₹{loanAmount ? loanAmount.toLocaleString() : '-'}</p>
                 </div>
                 
                 <div>
-                  <p className="text-gray-500">Interest Rate</p>
+                  <p className="text-gray-500 dark:text-gray-300">Interest Rate</p>
                   <p className="text-lg font-semibold">{interestRate ? `${interestRate}% p.a.` : '-'}</p>
                 </div>
                 
                 <div>
-                  <p className="text-gray-500">Loan Tenure</p>
+                  <p className="text-gray-500 dark:text-gray-300">Loan Tenure</p>
                   <p className="text-lg font-semibold">
                     {tenure ? `${tenure} ${tenureType === 'years' ? 'Years' : 'Months'}` : '-'}
                   </p>
                 </div>
                 
                 <div>
-                  <p className="text-gray-500">Monthly EMI</p>
+                  <p className="text-gray-500 dark:text-gray-300">Monthly EMI</p>
                   <p className="text-lg font-semibold">₹{emi ? emi.toFixed(2) : '-'}</p>
                 </div>
                 
                 <div>
-                  <p className="text-gray-500">Start Date</p>
+                  <p className="text-gray-500 dark:text-gray-300">Start Date</p>
                   <p className="text-lg font-semibold">{format(startDate, 'MMM yyyy')}</p>
                 </div>
                 
                 <div>
-                  <p className="text-gray-500">Total Interest</p>
+                  <p className="text-gray-500 dark:text-gray-300">Total Interest</p>
                   <p className="text-lg font-semibold">
                     {emi && tenure ? `₹${(emi * (tenureType === 'years' ? tenure * 12 : tenure) - loanAmount).toFixed(2)}` : '-'}
                   </p>
@@ -546,51 +556,49 @@ const PersonalLoanCalculator: React.FC = () => {
                   {(enablePartPayment || enableInterestRateChanges) && modifiedSchedule.length > 0 ? (
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Savings Analysis</h3>
+                      
+                      <div className="savings-comparison-tile mb-4 animate-fade-in">
+                        <div className="text-center py-2">
+                          <h4 className="savings-tile-heading mb-1">TOTAL SAVINGS</h4>
+                          <p className="text-2xl font-bold">₹{savings.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      
                       <div className="bg-finance-light p-4 rounded-lg border">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-gray-500">Original EMI</p>
+                            <p className="text-gray-500 dark:text-gray-300">Original EMI</p>
                             <p className="text-lg font-semibold">₹{originalSchedule[0]?.emi.toFixed(2) || '-'}</p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-500">Modified EMI</p>
+                            <p className="text-gray-500 dark:text-gray-300">Modified EMI</p>
                             <p className="text-lg font-semibold">
                               ₹{modifiedSchedule[modifiedSchedule.length - 1]?.emi.toFixed(2) || '-'}
                             </p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-500">Original Tenure</p>
+                            <p className="text-gray-500 dark:text-gray-300">Original Tenure</p>
                             <p className="text-lg font-semibold">{originalSchedule.length || '-'} months</p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-500">Modified Tenure</p>
+                            <p className="text-gray-500 dark:text-gray-300">Modified Tenure</p>
                             <p className="text-lg font-semibold">{modifiedSchedule.length || '-'} months</p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-500">Total Interest (Original)</p>
+                            <p className="text-gray-500 dark:text-gray-300">Total Interest (Original)</p>
                             <p className="text-lg font-semibold">
                               ₹{originalSchedule.reduce((sum, row) => sum + row.interest, 0).toFixed(2) || '-'}
                             </p>
                           </div>
                           
                           <div>
-                            <p className="text-gray-500">Total Interest (Modified)</p>
-                            <p className="text-lg font-semibold text-green-600">
+                            <p className="text-gray-500 dark:text-gray-300">Total Interest (Modified)</p>
+                            <p className="text-lg font-semibold text-green-savings">
                               ₹{modifiedSchedule.reduce((sum, row) => sum + row.interest, 0).toFixed(2) || '-'}
-                            </p>
-                          </div>
-                          
-                          <div className="col-span-2 mt-2">
-                            <p className="text-gray-500">Total Savings</p>
-                            <p className="text-xl font-bold text-green-600">
-                              ₹{(
-                                originalSchedule.reduce((sum, row) => sum + row.interest, 0) - 
-                                modifiedSchedule.reduce((sum, row) => sum + row.interest, 0)
-                              ).toFixed(2) || '-'}
                             </p>
                           </div>
                         </div>
@@ -598,8 +606,8 @@ const PersonalLoanCalculator: React.FC = () => {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">
-                        {version === "v3.0" && (!loanAmount || !interestRate || !tenure) 
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {(version === "v3.0" || version === "v3.1") && (!loanAmount || !interestRate || !tenure) 
                           ? "Please enter loan details to see potential savings" 
                           : "Enable part payment or interest rate changes to see potential savings"}
                       </p>
