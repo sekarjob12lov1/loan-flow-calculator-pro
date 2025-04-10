@@ -16,9 +16,9 @@ const GoldLoanCalculator: React.FC = () => {
   const { version } = useAppVersion();
   
   // Loan Parameters
-  const [loanAmount, setLoanAmount] = useState(100000);
-  const [interestRate, setInterestRate] = useState(7.5);
-  const [tenure, setTenure] = useState(24);
+  const [loanAmount, setLoanAmount] = useState<number>(100000);
+  const [interestRate, setInterestRate] = useState<number>(7.5);
+  const [tenure, setTenure] = useState<number>(24);
   const [tenureType, setTenureType] = useState<'months' | 'years'>('months');
   const [startDate, setStartDate] = useState(new Date());
   
@@ -76,6 +76,14 @@ const GoldLoanCalculator: React.FC = () => {
   
   // Calculate EMI and loan schedules whenever relevant parameters change
   useEffect(() => {
+    // Skip calculation if inputs are missing in v3.0+
+    if (version === "v3.0" && (!loanAmount || !interestRate || !tenure)) {
+      setEmi(0);
+      setOriginalSchedule([]);
+      setModifiedSchedule([]);
+      return;
+    }
+    
     const actualTenure = tenureType === 'years' ? tenure * 12 : tenure;
     
     // Calculate monthly EMI
@@ -110,13 +118,14 @@ const GoldLoanCalculator: React.FC = () => {
     }
     
     // Format interest rate changes
-    const formattedRateChanges: {date: Date, rate: number}[] = [];
+    const formattedRateChanges: {date: Date, rate: number, reduceEMI: boolean}[] = [];
     
-    if (version === "v2.0" && enableInterestRateChanges && interestRateChanges.length > 0) {
+    if (version !== "v1.0" && enableInterestRateChanges && interestRateChanges.length > 0) {
       interestRateChanges.forEach(rc => {
         formattedRateChanges.push({
           date: rc.date,
-          rate: rc.rate
+          rate: rc.rate,
+          reduceEMI: version === "v3.0" ? rc.reduceEMI : reduceEMI
         });
       });
       
@@ -132,14 +141,14 @@ const GoldLoanCalculator: React.FC = () => {
       emiValue, 
       startDate, 
       [], 
-      formattedRateChanges
+      []
     );
     
     setOriginalSchedule(originalScheduleData);
     
-    // If part payment is enabled, calculate the modified schedule
+    // If part payment or interest rate changes are enabled, calculate the modified schedule
     if ((enablePartPayment && formattedPartPayments.length > 0) || 
-        (version === "v2.0" && enableInterestRateChanges && formattedRateChanges.length > 0)) {
+        (version !== "v1.0" && enableInterestRateChanges && formattedRateChanges.length > 0)) {
       
       const modifiedScheduleData = generateSchedule(
         loanAmount, 
@@ -178,9 +187,14 @@ const GoldLoanCalculator: React.FC = () => {
     monthlyEmi: number,
     start: Date,
     partPayments: { date: Date, amount: number }[] = [],
-    rateChanges: { date: Date, rate: number }[] = [],
-    reduceEmi: boolean = true
+    rateChanges: { date: Date, rate: number, reduceEMI: boolean }[] = [],
+    globalReduceEmi: boolean = true
   ): PaymentScheduleRow[] => {
+    // Skip calculation if inputs are missing in v3.0+
+    if (version === "v3.0" && (!principal || !rate || !tenureMonths)) {
+      return [];
+    }
+    
     const schedule: PaymentScheduleRow[] = [];
     let remainingPrincipal = principal;
     let currentEmi = monthlyEmi;
@@ -202,16 +216,29 @@ const GoldLoanCalculator: React.FC = () => {
       const currentDate = addMonths(start, month - 1);
       
       // Check if there's an interest rate change for this month
-      const rateChange = sortedRateChanges.find(rc => 
-        format(rc.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
-      );
+      // For v3.0, we check exact date, not just month/year
+      const rateChange = version === "v3.0" 
+        ? sortedRateChanges.find(rc => 
+            rc.date.getTime() <= currentDate.getTime() && 
+            !sortedRateChanges.some(other => 
+              other !== rc && 
+              other.date.getTime() <= currentDate.getTime() && 
+              other.date.getTime() > rc.date.getTime()
+            )
+          )
+        : sortedRateChanges.find(rc => 
+            format(rc.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
+          );
       
       if (rateChange) {
         currentRate = rateChange.rate;
         monthlyRate = currentRate / (12 * 100);
         
+        // Use per-rate change reduceEMI preference in v3.0
+        const useReduceEMI = version === "v3.0" ? rateChange.reduceEMI : globalReduceEmi;
+        
         // Recalculate EMI if reducing EMI or if it's the first rate change
-        if (reduceEmi && remainingPrincipal > 0) {
+        if (useReduceEMI && remainingPrincipal > 0) {
           currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
             (Math.pow(1 + monthlyRate, remainingMonths) - 1);
         }
@@ -261,7 +288,7 @@ const GoldLoanCalculator: React.FC = () => {
         remainingPrincipal -= partPaymentAmount;
         
         // Recalculate EMI or tenure based on user preference
-        if (reduceEmi && remainingPrincipal > 0) {
+        if (globalReduceEmi && remainingPrincipal > 0) {
           // Reduce EMI keeping the same tenure
           remainingMonths = tenureMonths - month + 1;
           currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
@@ -308,9 +335,10 @@ const GoldLoanCalculator: React.FC = () => {
               value={loanAmount}
               onChange={setLoanAmount}
               min={10000}
-              max={10000000}
+              max={version === "v3.0" ? 1000000000 : 10000000}
               step={10000}
               unit="₹"
+              allowEmpty={version === "v3.0"}
             />
             
             <RangeInput
@@ -321,6 +349,7 @@ const GoldLoanCalculator: React.FC = () => {
               max={30}
               step={0.1}
               unit="%"
+              allowEmpty={version === "v3.0"}
             />
             
             <div className="mb-4">
@@ -334,6 +363,7 @@ const GoldLoanCalculator: React.FC = () => {
                     min={1}
                     max={tenureType === 'years' ? 30 : 360}
                     step={1}
+                    allowEmpty={version === "v3.0"}
                   />
                 </div>
                 <div>
@@ -362,7 +392,7 @@ const GoldLoanCalculator: React.FC = () => {
               allowPastDates={true}
             />
             
-            {version === "v2.0" && (
+            {version !== "v1.0" && (
               <div className="mt-6">
                 <h3 className="text-lg font-medium mb-4">Interest Rate Changes</h3>
                 
@@ -380,7 +410,8 @@ const GoldLoanCalculator: React.FC = () => {
                         handleAddInterestChange({
                           id: `rate-change-${Date.now()}`,
                           date: defaultDate,
-                          rate: interestRate + 0.5
+                          rate: interestRate + 0.5,
+                          reduceEMI: true
                         });
                       }
                     }}
@@ -420,7 +451,7 @@ const GoldLoanCalculator: React.FC = () => {
                         id: `payment-${Date.now()}`,
                         date: defaultDate,
                         amount: 10000,
-                        isRecurring: version === "v2.0" ? false : false,
+                        isRecurring: version !== "v1.0" ? false : false,
                         recurringCount: 1,
                         recurringFrequency: 3
                       });
@@ -439,8 +470,8 @@ const GoldLoanCalculator: React.FC = () => {
                     onRemovePartPayment={handleRemovePartPayment}
                     onUpdatePartPayment={handleUpdatePartPayment}
                     loanStartDate={startDate}
-                    maxAmount={loanAmount}
-                    showRecurringOptions={version === "v2.0"}
+                    maxAmount={version === "v3.0" ? loanAmount : loanAmount}
+                    showRecurringOptions={version !== "v1.0"}
                   />
                   
                   <div className="mb-4 mt-4">
@@ -472,24 +503,24 @@ const GoldLoanCalculator: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-500">Loan Amount</p>
-                  <p className="text-lg font-semibold">₹{loanAmount.toLocaleString()}</p>
+                  <p className="text-lg font-semibold">₹{loanAmount ? loanAmount.toLocaleString() : '-'}</p>
                 </div>
                 
                 <div>
                   <p className="text-gray-500">Interest Rate</p>
-                  <p className="text-lg font-semibold">{interestRate}% p.a.</p>
+                  <p className="text-lg font-semibold">{interestRate ? `${interestRate}% p.a.` : '-'}</p>
                 </div>
                 
                 <div>
                   <p className="text-gray-500">Loan Tenure</p>
                   <p className="text-lg font-semibold">
-                    {tenure} {tenureType === 'years' ? 'Years' : 'Months'}
+                    {tenure ? `${tenure} ${tenureType === 'years' ? 'Years' : 'Months'}` : '-'}
                   </p>
                 </div>
                 
                 <div>
                   <p className="text-gray-500">Monthly EMI</p>
-                  <p className="text-lg font-semibold">₹{emi.toFixed(2)}</p>
+                  <p className="text-lg font-semibold">₹{emi ? emi.toFixed(2) : '-'}</p>
                 </div>
                 
                 <div>
@@ -500,7 +531,7 @@ const GoldLoanCalculator: React.FC = () => {
                 <div>
                   <p className="text-gray-500">Total Interest</p>
                   <p className="text-lg font-semibold">
-                    ₹{(emi * (tenureType === 'years' ? tenure * 12 : tenure) - loanAmount).toFixed(2)}
+                    {emi && tenure ? `₹${(emi * (tenureType === 'years' ? tenure * 12 : tenure) - loanAmount).toFixed(2)}` : '-'}
                   </p>
                 </div>
               </div>
@@ -523,44 +554,44 @@ const GoldLoanCalculator: React.FC = () => {
                 </TabsContent>
                 
                 <TabsContent value="partpayment">
-                  {(enablePartPayment || enableInterestRateChanges) ? (
+                  {(enablePartPayment || enableInterestRateChanges) && modifiedSchedule.length > 0 ? (
                     <div>
                       <h3 className="text-lg font-semibold mb-3">Savings Analysis</h3>
                       <div className="bg-finance-light p-4 rounded-lg border">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-gray-500">Original EMI</p>
-                            <p className="text-lg font-semibold">₹{originalSchedule[0]?.emi.toFixed(2)}</p>
+                            <p className="text-lg font-semibold">₹{originalSchedule[0]?.emi.toFixed(2) || '-'}</p>
                           </div>
                           
                           <div>
                             <p className="text-gray-500">Modified EMI</p>
                             <p className="text-lg font-semibold">
-                              ₹{modifiedSchedule[modifiedSchedule.length - 1]?.emi.toFixed(2)}
+                              ₹{modifiedSchedule[modifiedSchedule.length - 1]?.emi.toFixed(2) || '-'}
                             </p>
                           </div>
                           
                           <div>
                             <p className="text-gray-500">Original Tenure</p>
-                            <p className="text-lg font-semibold">{originalSchedule.length} months</p>
+                            <p className="text-lg font-semibold">{originalSchedule.length || '-'} months</p>
                           </div>
                           
                           <div>
                             <p className="text-gray-500">Modified Tenure</p>
-                            <p className="text-lg font-semibold">{modifiedSchedule.length} months</p>
+                            <p className="text-lg font-semibold">{modifiedSchedule.length || '-'} months</p>
                           </div>
                           
                           <div>
                             <p className="text-gray-500">Total Interest (Original)</p>
                             <p className="text-lg font-semibold">
-                              ₹{originalSchedule.reduce((sum, row) => sum + row.interest, 0).toFixed(2)}
+                              ₹{originalSchedule.reduce((sum, row) => sum + row.interest, 0).toFixed(2) || '-'}
                             </p>
                           </div>
                           
                           <div>
                             <p className="text-gray-500">Total Interest (Modified)</p>
                             <p className="text-lg font-semibold text-green-600">
-                              ₹{modifiedSchedule.reduce((sum, row) => sum + row.interest, 0).toFixed(2)}
+                              ₹{modifiedSchedule.reduce((sum, row) => sum + row.interest, 0).toFixed(2) || '-'}
                             </p>
                           </div>
                           
@@ -570,7 +601,7 @@ const GoldLoanCalculator: React.FC = () => {
                               ₹{(
                                 originalSchedule.reduce((sum, row) => sum + row.interest, 0) - 
                                 modifiedSchedule.reduce((sum, row) => sum + row.interest, 0)
-                              ).toFixed(2)}
+                              ).toFixed(2) || '-'}
                             </p>
                           </div>
                         </div>
@@ -578,7 +609,11 @@ const GoldLoanCalculator: React.FC = () => {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">Enable part payment to see potential savings</p>
+                      <p className="text-gray-500">
+                        {version === "v3.0" && (!loanAmount || !interestRate || !tenure) 
+                          ? "Please enter loan details to see potential savings" 
+                          : "Enable part payment or interest rate changes to see potential savings"}
+                      </p>
                     </div>
                   )}
                 </TabsContent>

@@ -73,11 +73,24 @@ const appVersions: VersionInfo[] = [
       "Responsive design improvements"
     ],
     releaseDate: "2024-04-09"
+  },
+  {
+    version: "v3.0",
+    label: "Version 3.0",
+    description: "Advanced Input Controls",
+    features: [
+      "Precise date selection for interest rate changes",
+      "Per-change EMI/tenure reduction options",
+      "Direct value input without sliders",
+      "Support for loans up to ₹100 crores",
+      "Empty value support for flexible input"
+    ],
+    releaseDate: "2024-04-10"
   }
 ];
 
 export const AppVersionContext = createContext<AppVersionContextType>({
-  version: "v2.2", // Default to latest version
+  version: "v3.0", // Default to latest version
   setVersion: () => {},
   versionInfo: appVersions,
   currentVersionInfo: appVersions[appVersions.length - 1]
@@ -88,7 +101,7 @@ export const useAppVersion = () => useContext(AppVersionContext);
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [version, setVersion] = useState<string>("v2.2"); // Latest version as default
+  const [version, setVersion] = useState<string>("v3.0"); // Latest version as default
 
   // Get current version info
   const currentVersionInfo = appVersions.find(v => v.version === version) || appVersions[appVersions.length - 1];

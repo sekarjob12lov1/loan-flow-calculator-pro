@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Slider } from '@/components/ui/slider';
+
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -26,10 +26,10 @@ const RangeInput = ({
   className = '',
   allowEmpty = true
 }: RangeInputProps) => {
-  const [inputValue, setInputValue] = useState<string>(value.toString());
+  const [inputValue, setInputValue] = useState<string>(value ? value.toString() : '');
 
-  React.useEffect(() => {
-    setInputValue(value.toString());
+  useEffect(() => {
+    setInputValue(value ? value.toString() : '');
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,7 +45,8 @@ const RangeInput = ({
     
     const parsedValue = parseFloat(newValue);
     if (!isNaN(parsedValue)) {
-      onChange(Math.min(Math.max(parsedValue, min), max));
+      // Don't clamp values on input - allow users to enter any value
+      onChange(parsedValue);
     }
   };
 
@@ -58,8 +59,9 @@ const RangeInput = ({
     } else {
       const parsedValue = parseFloat(inputValue);
       if (isNaN(parsedValue)) {
-        setInputValue(value.toString());
+        setInputValue(value ? value.toString() : '');
       } else {
+        // Only clamp values on blur
         const clampedValue = Math.min(Math.max(parsedValue, min), max);
         setInputValue(clampedValue.toString());
         onChange(clampedValue);
@@ -74,25 +76,16 @@ const RangeInput = ({
       </Label>
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <Slider
-            value={[value]}
-            min={min}
-            max={max}
-            step={step}
-            onValueChange={(vals) => onChange(vals[0])}
-            className="my-2"
-            disabled={inputValue === ''}
-          />
-        </div>
-        <div className="w-32 flex items-center">
-          <Input
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            onBlur={handleBlur}
-            className="text-right"
-          />
-          {unit && <span className="ml-2">{unit}</span>}
+          <div className="flex items-center">
+            <Input
+              type="text"
+              value={inputValue}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              className="text-right"
+            />
+            {unit && <span className="ml-2">{unit}</span>}
+          </div>
         </div>
       </div>
     </div>
