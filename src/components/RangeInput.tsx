@@ -13,6 +13,7 @@ interface RangeInputProps {
   unit?: string;
   className?: string;
   allowEmpty?: boolean;
+  allowDecimal?: boolean;
 }
 
 const RangeInput = ({ 
@@ -24,7 +25,8 @@ const RangeInput = ({
   step, 
   unit = '', 
   className = '',
-  allowEmpty = true
+  allowEmpty = true,
+  allowDecimal = true
 }: RangeInputProps) => {
   const [inputValue, setInputValue] = useState<string>(value ? value.toString() : '');
 
@@ -41,11 +43,17 @@ const RangeInput = ({
       return;
     }
 
-    setInputValue(newValue);
+    // Allow decimal input or restrict to integers based on allowDecimal prop
+    // This regex checks if the input is a valid number pattern (allows decimal points if allowDecimal is true)
+    const validNumberPattern = allowDecimal ? /^-?\d*\.?\d*$/ : /^-?\d*$/;
     
-    const parsedValue = parseFloat(newValue);
-    if (!isNaN(parsedValue)) {
-      onChange(parsedValue);
+    if (validNumberPattern.test(newValue) || newValue === '') {
+      setInputValue(newValue);
+      
+      const parsedValue = parseFloat(newValue);
+      if (!isNaN(parsedValue)) {
+        onChange(parsedValue);
+      }
     }
   };
 
@@ -82,6 +90,8 @@ const RangeInput = ({
               onChange={handleInputChange}
               onBlur={handleBlur}
               className="text-right"
+              inputMode={allowDecimal ? "decimal" : "numeric"}
+              step={step}
             />
             {unit && <span className="ml-2">{unit}</span>}
           </div>
