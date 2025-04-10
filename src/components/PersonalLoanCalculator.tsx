@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -188,6 +187,12 @@ const PersonalLoanCalculator: React.FC = () => {
       return [];
     }
     
+    // Validate start date
+    if (!start || !isValid(start)) {
+      console.error("Invalid start date provided:", start);
+      return [];
+    }
+    
     const schedule: PaymentScheduleRow[] = [];
     let remainingPrincipal = principal;
     let currentEmi = monthlyEmi;
@@ -195,109 +200,171 @@ const PersonalLoanCalculator: React.FC = () => {
     let currentRate = rate;
     let monthlyRate = currentRate / (12 * 100);
     
+    // Filter out invalid dates from part payments and rate changes
+    const validPartPayments = partPayments.filter(pp => pp && pp.date && isValid(pp.date));
+    const validRateChanges = rateChanges.filter(rc => rc && rc.date && isValid(rc.date));
+    
     // Sort part payments by date
-    const sortedPartPayments = [...partPayments].sort((a, b) => 
+    const sortedPartPayments = [...validPartPayments].sort((a, b) => 
       a.date.getTime() - b.date.getTime()
     );
     
     // Sort rate changes by date
-    const sortedRateChanges = [...rateChanges].sort((a, b) => 
+    const sortedRateChanges = [...validRateChanges].sort((a, b) => 
       a.date.getTime() - b.date.getTime()
     );
     
-    for (let month = 1; remainingPrincipal > 0; month++) {
-      const currentDate = addMonths(start, month - 1);
-      
-      // Check if there's an interest rate change for this month
-      // For v3.0, we check exact date, not just month/year
-      const rateChange = version === "v3.0" 
-        ? sortedRateChanges.find(rc => 
-            rc.date && isValid(rc.date) && 
-            rc.date.getTime() <= currentDate.getTime() && 
-            !sortedRateChanges.some(other => 
-              other !== rc && 
-              other.date && isValid(other.date) &&
-              other.date.getTime() <= currentDate.getTime() && 
-              other.date.getTime() > rc.date.getTime()
-            )
-          )
-        : sortedRateChanges.find(rc => 
-            rc.date && isValid(rc.date) && 
-            format(rc.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
-          );
-      
-      if (rateChange) {
-        currentRate = rateChange.rate;
-        monthlyRate = currentRate / (12 * 100);
+    try {
+      for (let month = 1; remainingPrincipal > 0; month++) {
+        const currentDate = addMonths(start, month - 1);
+        if (!isValid(currentDate)) {
+          console.error("Generated invalid date for month:", month);
+          continue;
+        }
         
-        // Use per-rate change reduceEMI preference in v3.0
-        const useReduceEMI = version === "v3.0" ? rateChange.reduceEMI : globalReduceEmi;
+        // Format current date for comparison - wrapped in try/catch
+        let currentDateFormatted;
+        try {
+          currentDateFormatted = format(currentDate, 'yyyy-MM');
+        } catch (error) {
+          console.error("Error formatting date:", error);
+          continue;
+        }
         
-        // Recalculate EMI if reducing EMI and there's remaining principal
-        if (useReduceEMI && remainingPrincipal > 0) {
-          currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
-            (Math.pow(1 + monthlyRate, remainingMonths) - 1);
+        // Check if there's an interest rate change for this month
+        // For v3.0, we check exact date, not just month/year
+        let rateChange = null;
+        
+        if (version === "v3.0") {
+          for (const rc of sortedRateChanges) {
+            if (!rc.date || !isValid(rc.date)) continue;
+            
+            // Check if this is the most recent rate change before or on currentDate
+            if (rc.date.getTime() <= currentDate.getTime()) {
+              // See if there's another rate change that's more recent but still before currentDate
+              const moreRecentExists = sortedRateChanges.some(other => 
+                other !== rc && 
+                other.date && 
+                isValid(other.date) &&
+                other.date.getTime() <= currentDate.getTime() && 
+                other.date.getTime() > rc.date.getTime()
+              );
+              
+              if (!moreRecentExists) {
+                rateChange = rc;
+                break;
+              }
+            }
+          }
+        } else {
+          // For other versions, match by month-year
+          rateChange = sortedRateChanges.find(rc => {
+            if (!rc.date || !isValid(rc.date)) return false;
+            
+            try {
+              const rcFormatted = format(rc.date, 'yyyy-MM');
+              return rcFormatted === currentDateFormatted;
+            } catch (error) {
+              console.error("Error comparing dates:", error);
+              return false;
+            }
+          });
+        }
+        
+        if (rateChange) {
+          currentRate = rateChange.rate;
+          monthlyRate = currentRate / (12 * 100);
+          
+          // Use per-rate change reduceEMI preference in v3.0
+          const useReduceEMI = version === "v3.0" ? rateChange.reduceEMI : globalReduceEmi;
+          
+          // Recalculate EMI if reducing EMI and there's remaining principal
+          if (useReduceEMI && remainingPrincipal > 0) {
+            currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
+              (Math.pow(1 + monthlyRate, remainingMonths) - 1);
+          }
+        }
+        
+        // Calculate interest for current month based on current rate
+        const monthInterest = remainingPrincipal * monthlyRate;
+        
+        // Check if there's a part payment for this month
+        let partPayment = null;
+        
+        try {
+          partPayment = sortedPartPayments.find(pp => {
+            if (!pp.date || !isValid(pp.date)) return false;
+            
+            try {
+              const ppFormatted = format(pp.date, 'yyyy-MM');
+              return ppFormatted === currentDateFormatted;
+            } catch (error) {
+              console.error("Error comparing part payment dates:", error);
+              return false;
+            }
+          });
+        } catch (error) {
+          console.error("Error finding part payment:", error);
+        }
+        
+        let partPaymentAmount = 0;
+        if (partPayment) {
+          partPaymentAmount = Math.min(partPayment.amount, remainingPrincipal);
+        }
+        
+        // Calculate principal and interest components of EMI
+        let principalPart = Math.min(currentEmi - monthInterest, remainingPrincipal);
+        
+        // Create a schedule entry
+        const entry: PaymentScheduleRow = {
+          month,
+          date: currentDate,
+          openingBalance: remainingPrincipal,
+          emi: currentEmi,
+          principal: principalPart,
+          interest: monthInterest,
+          closingBalance: remainingPrincipal - principalPart,
+          currentRate: currentRate // Add current interest rate to the schedule
+        };
+        
+        // Update remaining principal
+        remainingPrincipal -= principalPart;
+        
+        // Apply part payment if any
+        if (partPayment && partPaymentAmount > 0) {
+          // Add part payment entry
+          schedule.push({
+            ...entry,
+            isPartPayment: true,
+            partPaymentAmount: partPaymentAmount
+          });
+          
+          // Reduce principal by part payment amount
+          remainingPrincipal -= partPaymentAmount;
+          
+          // Recalculate EMI or tenure based on user preference
+          if (globalReduceEmi && remainingPrincipal > 0) {
+            // Reduce EMI keeping the same tenure
+            remainingMonths = tenureMonths - month + 1;
+            currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
+              (Math.pow(1 + monthlyRate, remainingMonths) - 1);
+          }
+          // If not reducing EMI, we keep the same EMI but tenure will naturally reduce
+        } else {
+          schedule.push(entry);
+        }
+        
+        remainingMonths--;
+        if (remainingPrincipal <= 0) break;
+        
+        // Safety check: prevent infinite loops
+        if (month > 1000) {
+          console.error("Schedule calculation exceeded 1000 months, stopping");
+          break;
         }
       }
-      
-      // Calculate interest for current month based on current rate
-      const monthInterest = remainingPrincipal * monthlyRate;
-      
-      // Check if there's a part payment for this month
-      const partPayment = sortedPartPayments.find(pp => 
-        pp.date && isValid(pp.date) &&
-        format(pp.date, 'yyyy-MM') === format(currentDate, 'yyyy-MM')
-      );
-      
-      let partPaymentAmount = 0;
-      if (partPayment) {
-        partPaymentAmount = Math.min(partPayment.amount, remainingPrincipal);
-      }
-      
-      // Calculate principal and interest components of EMI
-      let principalPart = Math.min(currentEmi - monthInterest, remainingPrincipal);
-      
-      // Create a schedule entry
-      const entry: PaymentScheduleRow = {
-        month,
-        date: currentDate,
-        openingBalance: remainingPrincipal,
-        emi: currentEmi,
-        principal: principalPart,
-        interest: monthInterest,
-        closingBalance: remainingPrincipal - principalPart,
-        currentRate: currentRate // Add current interest rate to the schedule
-      };
-      
-      // Update remaining principal
-      remainingPrincipal -= principalPart;
-      
-      // Apply part payment if any
-      if (partPayment && partPaymentAmount > 0) {
-        // Add part payment entry
-        schedule.push({
-          ...entry,
-          isPartPayment: true,
-          partPaymentAmount: partPaymentAmount
-        });
-        
-        // Reduce principal by part payment amount
-        remainingPrincipal -= partPaymentAmount;
-        
-        // Recalculate EMI or tenure based on user preference
-        if (globalReduceEmi && remainingPrincipal > 0) {
-          // Reduce EMI keeping the same tenure
-          remainingMonths = tenureMonths - month + 1;
-          currentEmi = remainingPrincipal * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths) / 
-            (Math.pow(1 + monthlyRate, remainingMonths) - 1);
-        }
-        // If not reducing EMI, we keep the same EMI but tenure will naturally reduce
-      } else {
-        schedule.push(entry);
-      }
-      
-      remainingMonths--;
-      if (remainingPrincipal <= 0) break;
+    } catch (error) {
+      console.error("Error generating schedule:", error);
     }
     
     return schedule;
